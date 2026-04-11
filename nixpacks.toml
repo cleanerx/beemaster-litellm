@@ -1,0 +1,9 @@
+# LiteLLM Proxy for Beemaster
+[phases.setup]
+nixPkgs = ["python311", "pip"]
+
+[phases.install]
+cmds = ["pip install litellm"]
+
+[start]
+cmd = "litellm --config /app/config.yaml --port 4000 --detailed_debug"
