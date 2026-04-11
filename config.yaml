@@ -4,10 +4,10 @@ model_list:
   - model_name: nemotron
     litellm_params:
       model: deepinfra/nvidia/Nemotron-3-Nano-30B-A3B
-      api_key: os.environ/DEEPINFRA_API_KEY
+      api_key: "os.environ/DEEPINFRA_API_KEY"
 
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: "os.environ/LITELLM_MASTER_KEY"
 
 litellm_settings:
   drop_params: true
@@ -21,4 +21,4 @@ router_settings:
 # Database for Virtual Key management
 database:
   type: postgres
-  url: os.environ/DATABASE_URL
+  url: "os.environ/DATABASE_URL"
