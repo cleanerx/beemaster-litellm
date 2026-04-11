@@ -1,15 +1,17 @@
-# Simple Test - Just Run LiteLLM
-FROM python:3.11-slim
+# LiteLLM Proxy for Beemaster - Using official image
+FROM ghcr.io/berriai/litellm:main-latest
 
-# Install LiteLLM via pip
-RUN pip install litellm
+# LiteLLM has its own config system
+ENV LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+ENV DEEPINFRA_API_KEY=${DEEPINFRA_API_KEY}
+ENV DATABASE_URL=${DATABASE_URL}
 
 # Copy config
 COPY config.yaml /app/config.yaml
+
 WORKDIR /app
 
-# Expose port
 EXPOSE 4000
 
-# Start
-CMD ["litellm", "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug"]
+# LiteLLM entrypoint - just use config file
+CMD ["--config", "/app/config.yaml", "--port", "4000"]
