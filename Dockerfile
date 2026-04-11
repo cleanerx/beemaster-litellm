@@ -1,17 +1,7 @@
-# LiteLLM Proxy for Beemaster - Using official image
+# LiteLLM Proxy - Minimal setup
 FROM ghcr.io/berriai/litellm:main-latest
-
-# LiteLLM has its own config system
-ENV LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
-ENV DEEPINFRA_API_KEY=${DEEPINFRA_API_KEY}
-ENV DATABASE_URL=${DATABASE_URL}
-
-# Copy config
-COPY config.yaml /app/config.yaml
-
-WORKDIR /app
 
 EXPOSE 4000
 
-# LiteLLM entrypoint - just use config file
-CMD ["--config", "/app/config.yaml", "--port", "4000"]
+# LiteLLM streams config from environment
+CMD ["--model", "deepinfra/nvidia/Nemotron-3-Nano-30B-A3B", "--port", "4000"]
