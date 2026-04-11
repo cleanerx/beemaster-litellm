@@ -12,20 +12,13 @@ general_settings:
 litellm_settings:
   drop_params: true
   set_verbose: false
-  
-  # Success callback for credit tracking
-  success_callback_params:
-    - callback: beemaster_callback
-      url: os.environ/BEEMASTER_BACKEND_URL/api/v1/credits/consume
-      headers:
-        X-Internal-Key: os.environ/INTERNAL_API_KEY
 
 router_settings:
-  routing_strategy: "simple-shuffle"
+  routing_strategy: simple-shuffle
   num_retries: 2
   retry_after: 0.5
 
-# Database for Virtual Key management (auto-provisioned by Railway)
+# Database for Virtual Key management
 database:
   type: postgres
   url: os.environ/DATABASE_URL
