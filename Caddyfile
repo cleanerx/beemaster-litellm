@@ -1,0 +1,23 @@
+# Caddyfile for Beemaster LiteLLM Proxy
+# HTTPS-Terminierung mit automatischen Let's Encrypt Zertifikaten
+#
+# Ersetze beemaster.myfritz.net durch deinen MyFRITZ-DynDNS-Namen.
+# Caddy holt automatisch ein SSL-Zertifikat von Let's Encrypt.
+
+beemaster.myfritz.net {
+    reverse_proxy litellm:4000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+    }
+
+    # Health Check weiterleiten
+    handle /health* {
+        reverse_proxy litellm:4000
+    }
+
+    # Logging
+    log {
+        output file /data/access.log
+        format json
+    }
+}

@@ -7,23 +7,36 @@ model_list:
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
 
+  # Custom Auth: validates Supabase JWT via Edge Function
+  # mode: "auto" checks custom auth first, then LiteLLM native (master_key)
+  custom_auth: custom_auth.user_api_key_auth
+  custom_auth_settings:
+    mode: "auto"
+
 litellm_settings:
   drop_params: true
   set_verbose: true
 
-  # Success callback for credit tracking
-  success_callback:
-    - kind: http
-      url: os.environ/BEEMASTER_BACKEND_URL/api/v1/credits/consume
-      headers:
-        X-Internal-Key: os.environ/INTERNAL_API_KEY
+  # Python callback for credit deduction via Supabase consume-credit
+  callbacks:
+    - kind: custom_callback
+      callback_name: beemaster_credits
+      callback_type: success_callback
+      callback_func: beemaster_callback
 
 router_settings:
   routing_strategy: simple-shuffle
   num_retries: 2
   retry_after: 0.5
+  fallbacks:
+    - nemotron: []
 
-# Database required for virtual keys
+# Database for LiteLLM spend tracking (not for credits — credits are in Supabase)
 database:
   type: postgres
   url: os.environ/DATABASE_URL
+
+# Environment variables passed to callbacks
+user_api_key_vars:
+  SUPABASE_URL: os.environ/SUPABASE_URL
+  INTERNAL_API_KEY: os.environ/INTERNAL_API_KEY

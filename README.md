@@ -2,52 +2,49 @@
 
 LiteLLM proxy service for Beemaster app. Routes LLM requests to DeepInfra and tracks credit usage.
 
-## Architecture
+> **Architecture:** Supabase + Pi 5 LiteLLM Hybrid (ADR-021)
+> See: `beemaster-android/docs/04_adr/ADR-021_supabase_pi5_litellm_hybrid.md`
 
 ```
-Android App (Virtual Key)
+Android App (Supabase JWT)
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ LiteLLM Proxy (Railway)                 │
-│  - Virtual Key Authentication            │
+│ Caddy (HTTPS, Let's Encrypt)            │
+│ beemaster.myfritz.net                   │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│ LiteLLM Proxy (Pi 5, Docker)            │
+│  - Custom Auth → Supabase verify-key    │
 │  - Routes to DeepInfra Nemotron         │
-│  - Callback: Credit Deduction           │
-└─────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────┐
-│ Beemaster Backend (Cloudflare Workers)  │
-│  - /api/v1/credits/consume              │
-│  - Deducts credits from user            │
+│  - Callback: Supabase consume-credit    │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│ Supabase (Source of Truth)              │
+│  - Auth (JWT)                           │
+│  - Credits (PostgreSQL)                 │
+│  - Subscriptions                        │
 └─────────────────────────────────────────┘
 ```
 
-## Railway Deployment
+## Pi 5 Setup
 
-### 1. Create PostgreSQL Database
+Siehe: [`docs/PI5_SETUP.md`](docs/PI5_SETUP.md) — Vollständige Schritt-für-Schritt-Anleitung.
 
-Railway Dashboard → New Service → Database → PostgreSQL
-
-### 2. Deploy this Repo
-
-Railway Dashboard → New Service → GitHub Repo → `beemaster-litellm`
-
-### 3. Set Environment Variables
+### Quick Start
 
 ```bash
-DEEPINFRA_API_KEY=your-deepinfra-key
-LITELLM_MASTER_KEY=your-master-key
-BEEMASTER_BACKEND_URL=https://beemaster-backend.cleanerx.workers.dev
-INTERNAL_API_KEY=your-internal-secret-key
-DATABASE_URL=${{Postgres.DATABASE_URL}}  # Reference Railway PostgreSQL
-```
+# .env konfigurieren
+cp .env.example .env
+nano .env
 
-### 4. Generate Master Key
+# Container starten
+docker compose up -d
 
-```bash
-# Generate a secure key
-openssl rand -hex 32
+# Verifikation
+curl https://beemaster.myfritz.net/health
 ```
 
 ## Environment Variables
@@ -55,62 +52,40 @@ openssl rand -hex 32
 | Variable | Description |
 |----------|-------------|
 | `DEEPINFRA_API_KEY` | DeepInfra API key for Nemotron model |
-| `LITELLM_MASTER_KEY` | LiteLLM admin key (generate with openssl) |
-| `BEEMASTER_BACKEND_URL` | Beemaster Backend URL |
-| `INTERNAL_API_KEY` | Secret key for backend authentication |
-| `DATABASE_URL` | PostgreSQL connection (auto from Railway) |
+| `LITELLM_MASTER_KEY` | LiteLLM admin key (generate with `openssl rand -hex 32`) |
+| `SUPABASE_URL` | Supabase project URL |
+| `INTERNAL_API_KEY` | Secret for Supabase Edge Function auth |
+| `POSTGRES_PASSWORD` | Password for LiteLLM PostgreSQL (spend logs) |
 
-## API Endpoints
-
-### Health Check
+## Backup & Restore
 
 ```bash
-curl https://your-litellm.railway.app/health
+# Backup erstellen
+./backup.sh
+
+# Restore aus Backup
+./restore.sh litellm_2026-06-28.sql
 ```
 
-### Chat Completion
+Siehe: [`docs/PI5_SETUP.md`](docs/PI5_SETUP.md) für Cron-Setup und Wartung.
 
-```bash
-curl -X POST https://your-litellm.railway.app/v1/chat/completions \
-  -H "Authorization: Bearer sk-beemaster-xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "nemotron",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
+## Files
 
-## Credit Calculation
+| File | Purpose |
+|------|---------|
+| `config.yaml` | LiteLLM configuration (model routing, custom auth, callback) |
+| `Dockerfile` | Docker build for LiteLLM (ARM64 compatible) |
+| `docker-compose.yml` | 3 Services: Caddy, LiteLLM, PostgreSQL |
+| `Caddyfile` | HTTPS-Terminierung mit Let's Encrypt |
+| `callbacks/custom_auth.py` | Custom Auth: validates Supabase JWT via Edge Function |
+| `callbacks/beemaster_callback.py` | Credit deduction callback via Supabase |
+| `backup.sh` | PostgreSQL dump script |
+| `restore.sh` | Restore from SQL dump |
+| `.env.example` | Environment variables template |
+| `docs/PI5_SETUP.md` | Full Pi 5 setup guide |
 
-| Tokens | Credits |
-|--------|---------|
-| 1-999 | 1 |
-| 1000-1999 | 1 |
-| 2000-2999 | 2 |
-| ... | ... |
+## Related
 
-Formula: `credits = max(1, total_tokens // 1000)`
-
-## Testing
-
-```bash
-# Local build
-docker build -t beemaster-litellm .
-docker run -p 4000:4000 \
-  -e DEEPINFRA_API_KEY=your-key \
-  -e LITELLM_MASTER_KEY=your-master \
-  -e BEEMASTER_BACKEND_URL=http://localhost:8787 \
-  -e INTERNAL_API_KEY=your-secret \
-  beemaster-litellm
-
-# Test health
-curl http://localhost:4000/health
-```
-
-## License
-
-MIT
-
----
-
-*Part of Beemaster Project*
+- **ADR-021:** `beemaster-android/docs/04_adr/ADR-021_supabase_pi5_litellm_hybrid.md`
+- **Supabase Edge Function:** `beemaster-supabase/supabase/functions/verify-litellm-key/`
+- **Android App:** `beemaster-android/` (AgentService, CreditRepository)
